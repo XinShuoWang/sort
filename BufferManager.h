@@ -21,14 +21,29 @@ public:
     fd_ = -1;
     isRunning_ = true;
     spiller_ = std::make_shared<Spiller>();
+    init();
   }
 
   ~BufferManager() {
+    stop();
     if (fd_ >= 0) {
       close(fd_);
     }
   }
 
+  void invalidMemory(MmapMemoryPtr &mem) {
+    char *addr = mem->address();
+    memSize size = mem->size();
+    spiller_->unpin(addr, size);
+    madvise(addr, size, MADV_DONTNEED);
+    registerMemory(mem);
+  }
+
+  static MmapMemoryPtr accquireMemory(int64_t size) {
+    return std::make_shared<MmapMemory>(size);
+  }
+
+private:
   void init() {
     // create userfaultfd
     fd_ = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
@@ -41,6 +56,8 @@ public:
     if (ioctl(fd_, UFFDIO_API, &api) < 0) {
       throw std::runtime_error("setting API failed!");
     }
+
+    startPageFaultHandlerThread();
   }
 
   void registerMemory(MmapMemoryPtr &mem) {
@@ -55,17 +72,6 @@ public:
       std::lock_guard<std::mutex> guard(mutex_);
       memorySize_[addr] = size;
     }
-  }
-
-  void invalidMemory(MmapMemoryPtr &mem) {
-    char *addr = mem->address();
-    memSize size = mem->size();
-    spiller_->unpin(addr, size);
-    madvise(addr, size, MADV_DONTNEED);
-  }
-
-  static MmapMemoryPtr accquireMemory(int64_t size) {
-    return std::make_shared<MmapMemory>(size);
   }
 
   void startPageFaultHandlerThread() {
@@ -83,16 +89,10 @@ public:
         }
       }
     });
+    // waiting for thread start
+    usleep(100000);
   }
 
-  void stop() {
-    isRunning_ = false;
-    if (handlerThread_.joinable()) {
-      handlerThread_.join();
-    }
-  }
-
-private:
   void handlePageFaultEvent() {
     uffd_msg msg;
     if (read(fd_, &msg, sizeof(msg)) != sizeof(msg)) {
@@ -125,8 +125,16 @@ private:
     }
   }
 
+  void stop() {
+    isRunning_ = false;
+    usleep(1000000);
+    if (handlerThread_.joinable()) {
+      handlerThread_.join();
+    }
+  }
+
   int fd_;
-  bool isRunning_;
+  std::atomic<bool> isRunning_;
   std::thread handlerThread_;
 
   std::mutex mutex_;

@@ -1,48 +1,30 @@
 #include "BufferManager.h"
+#include "conf.h"
 
 #include <cstring>
 
 int main() {
   try {
-    BufferManager demo;
+    BufferManager manager;
 
-    demo.init();
+    memSize size = kPageSize * 2 + 3;
 
-    // start handler thread
-    demo.startPageFaultHandlerThread();
-    // waiting for handler thread start
-    usleep(100000);
+    // allocate mem
+    auto memory = BufferManager::accquireMemory(size);
+    size = memory->size();
 
-    // test memory access
-    {
-      std::cout << "TESTING MEM ACCESS" << std::endl;
-
-      memSize size = kPageSize * 2 + 3;
-
-      // allocate mem
-      auto memory = BufferManager::accquireMemory(size);
-
-      // write content to mem
-      std::memset(memory->address(), 'x', memory->size());
-
-      // write to disk
-      demo.invalidMemory(memory);
-
-      // register to userfaultfd
-      demo.registerMemory(memory);
-
-      char *addr = memory->address();
-      std::cout << "Access mem!" << std::endl;
-      // Page Fault!!!!
-      std::string s(addr, size);
-      std::cout << "mem content is: " << s << std::endl;
+    // write content to mem
+    for (memSize i = 0; i < memory->size(); ++i) {
+      memory->address()[i] = (rand() % 26) + 'A';
     }
 
-    // 等待一下让处理线程完成
-    sleep(1);
-    demo.stop();
+    // mark this memory can be flush to disk
+    manager.invalidMemory(memory);
 
-    std::cout << "Finish success!" << std::endl;
+    // Page Fault!!!!
+    char *addr = memory->address();
+    std::string s(addr, size);
+    std::cout << "mem content is: " << s << std::endl;
 
   } catch (const std::exception &e) {
     std::cout << "Encounter error: " << e.what() << std::endl;
