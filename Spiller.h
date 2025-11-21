@@ -28,22 +28,21 @@ public:
     {
       std::lock_guard<std::mutex> guard(mutex_);
       addrToFileName_[addr] = fileName;
-      fileNameToAddr_[fileName] = addr;
     }
   }
 
-  void pin(char *addr, char *dst, memSize size) {
+  void pin(char *startAddr, int64_t offset, char *dst, memSize size) {
     std::string fileName;
     {
       std::lock_guard<std::mutex> guard(mutex_);
-      auto it = addrToFileName_.find(addr);
+      auto it = addrToFileName_.find(startAddr);
       if (it == addrToFileName_.end()) {
         throw std::runtime_error("Can't find file name mapping for address: " +
-                                 std::to_string((uint64_t)addr));
+                                 std::to_string((uint64_t)startAddr));
       }
       fileName = it->second;
     }
-    read(fileName, dst, size);
+    read(fileName, offset, dst, size);
   }
 
 private:
@@ -63,12 +62,14 @@ private:
     return fileName;
   }
 
-  void read(std::string &fileName, char *addr, memSize size) {
+  void read(std::string &fileName, int64_t offset, char *addr, memSize size) {
     std::ifstream file(fileName, std::ios::binary);
     if (!file.is_open()) {
       throw std::runtime_error("Can't open " + fileName + " for read.");
     }
-
+    // seek to offset
+    file.seekg(offset);
+    // read 1 page
     file.read(static_cast<char *>(addr), size);
     if (!file.good()) {
       throw std::runtime_error("Encounter error for reading file.");
@@ -86,7 +87,6 @@ private:
 
   std::mutex mutex_;
   std::unordered_map<char *, std::string> addrToFileName_;
-  std::unordered_map<std::string, char *> fileNameToAddr_;
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;

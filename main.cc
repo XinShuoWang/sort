@@ -23,7 +23,7 @@ int main() {
 
     // Page Fault!!!!
     char *addr = memory->address();
-    std::string s(addr, size);
+    std::string s(addr + 9000, size - 9000);
     std::cout << "mem content is: " << s << std::endl;
 
   } catch (const std::exception &e) {

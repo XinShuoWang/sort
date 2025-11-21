@@ -2,6 +2,7 @@
 
 #include "MmapMemory.h"
 #include "Spiller.h"
+#include "conf.h"
 
 #include <iostream>
 #include <mutex>
@@ -14,6 +15,7 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <utility>
 
 class BufferManager {
 public:
@@ -70,7 +72,7 @@ private:
     }
     {
       std::lock_guard<std::mutex> guard(mutex_);
-      memorySize_[addr] = size;
+      memRegions_.emplace_back(std::make_pair(addr, size));
     }
   }
 
@@ -101,32 +103,38 @@ private:
 
     if (msg.event == UFFD_EVENT_PAGEFAULT) {
       char *addr = reinterpret_cast<char *>(msg.arg.pagefault.address);
-      memSize size;
-      {
-        std::lock_guard<std::mutex> guard(mutex_);
-        size = memorySize_[addr];
-        memorySize_.erase(addr);
-      }
 
       std::cout << "Page fault! address: " << (void *)msg.arg.pagefault.address
-                << ", size: " << size << std::endl;
+                << ", size: " << kPageSize << std::endl;
 
-      // 分配一个页面
-      std::string s(size, 'A');
+      // fill by origin content
+      char s[kPageSize];
+      auto startAddr = findStartAddr(addr);
+      spiller_->pin(startAddr, addr - startAddr, s, kPageSize);
 
-      spiller_->pin(addr, const_cast<char *>(s.c_str()), size);
-
-      // 告诉内核页面就绪
+      // tell kernel, page is ready
       uffdio_copy copy = {.dst = msg.arg.pagefault.address,
-                          .src = (uint64_t)s.c_str(),
-                          .len = size,
+                          .src = (uint64_t)s,
+                          .len = kPageSize,
                           .mode = 0};
       ioctl(fd_, UFFDIO_COPY, &copy);
     }
   }
 
+  // TODO: can optimize
+  char *findStartAddr(char *addr) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    for (const auto &region : memRegions_) {
+      if (addr >= region.first && addr < region.first + region.second) {
+        return region.first;
+      }
+    }
+    throw std::runtime_error("Can't find start address");
+  }
+
   void stop() {
     isRunning_ = false;
+    // waiting for stop
     usleep(1000000);
     if (handlerThread_.joinable()) {
       handlerThread_.join();
@@ -138,7 +146,7 @@ private:
   std::thread handlerThread_;
 
   std::mutex mutex_;
-  std::unordered_map<char *, uint64_t> memorySize_;
+  std::vector<std::pair<char *, int64_t>> memRegions_;
 
   SpillerPtr spiller_;
 };
