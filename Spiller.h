@@ -23,7 +23,7 @@ public:
   Spiller &operator=(const Spiller &) = delete;
   Spiller &operator=(Spiller &&) = delete;
 
-  void unpin(char *addr, memSize size) {
+  void eraseMem(char *addr, memSize size) {
     std::string fileName = write(addr, size);
     {
       std::lock_guard<std::mutex> guard(mutex_);
@@ -31,7 +31,7 @@ public:
     }
   }
 
-  void pin(char *startAddr, int64_t offset, char *dst, memSize size) {
+  void recoverMem(char *startAddr, int64_t offset, char *dst, memSize size) {
     std::string fileName;
     {
       std::lock_guard<std::mutex> guard(mutex_);
@@ -69,7 +69,7 @@ private:
     }
     // seek to offset
     file.seekg(offset);
-    // read 1 page
+    // read size bytes
     file.read(static_cast<char *>(addr), size);
     if (!file.good()) {
       throw std::runtime_error("Encounter error for reading file.");

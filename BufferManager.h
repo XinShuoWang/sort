@@ -23,10 +23,18 @@ public:
     fd_ = -1;
     isRunning_ = true;
     spiller_ = std::make_shared<Spiller>();
+    pageFaultCount_ = 0;
     init();
   }
 
+  BufferManager(const BufferManager &) = delete;
+  BufferManager(BufferManager &&) = delete;
+  BufferManager &operator=(const BufferManager &) = delete;
+  BufferManager &operator=(BufferManager &&) = delete;
+
   ~BufferManager() {
+    std::cout << "In the end, pageFaultCount_ is: " << pageFaultCount_
+              << std::endl;
     stop();
     if (fd_ >= 0) {
       close(fd_);
@@ -36,9 +44,13 @@ public:
   void invalidMemory(MmapMemoryPtr &mem) {
     char *addr = mem->address();
     memSize size = mem->size();
-    spiller_->unpin(addr, size);
-    madvise(addr, size, MADV_DONTNEED);
+    spiller_->eraseMem(addr, size);
+    invalidMemoryWithoutSave(addr, size);
     registerMemory(mem);
+  }
+
+  static void invalidMemoryWithoutSave(char *addr, memSize size) {
+    madvise(addr, size, MADV_DONTNEED);
   }
 
   static MmapMemoryPtr accquireMemory(int64_t size) {
@@ -104,13 +116,17 @@ private:
     if (msg.event == UFFD_EVENT_PAGEFAULT) {
       char *addr = reinterpret_cast<char *>(msg.arg.pagefault.address);
 
-      std::cout << "Page fault! address: " << (void *)msg.arg.pagefault.address
-                << ", size: " << kPageSize << std::endl;
+      if (pageFaultCount_ % 100000 == 0) {
+        std::cout << "Page fault! address: "
+                  << (void *)msg.arg.pagefault.address
+                  << ", size: " << kPageSize << std::endl;
+      }
+      pageFaultCount_++;
 
       // fill by origin content
       char s[kPageSize];
       auto startAddr = findStartAddr(addr);
-      spiller_->pin(startAddr, addr - startAddr, s, kPageSize);
+      spiller_->recoverMem(startAddr, addr - startAddr, s, kPageSize);
 
       // tell kernel, page is ready
       uffdio_copy copy = {.dst = msg.arg.pagefault.address,
@@ -149,4 +165,6 @@ private:
   std::vector<std::pair<char *, int64_t>> memRegions_;
 
   SpillerPtr spiller_;
+
+  uint64_t pageFaultCount_;
 };
