@@ -80,10 +80,11 @@ private:
 
   std::string nextFileName() {
     int64_t id = fileId_.fetch_add(1);
-    return std::to_string(id) + ".txt";
+    return std::to_string(id) + kFileSuffix;
   }
 
   std::atomic<int64_t> fileId_;
+  inline static const std::string kFileSuffix = ".bin";
 
   std::mutex mutex_;
   std::unordered_map<char *, std::string> addrToFileName_;

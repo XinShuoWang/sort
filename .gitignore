@@ -1,5 +1,7 @@
 .vscode/**
 
-*.txt
+*.bin
 
 a.out
+
+build/**
