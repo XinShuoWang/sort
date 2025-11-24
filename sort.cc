@@ -82,8 +82,7 @@ int main() {
       }
     }
   }
-  std::cout << std::endl
-            << "After invalid, process RSS is:" << MemoryUtils::getProcessRss()
+  std::cout << "After invalid, process RSS is:" << MemoryUtils::getProcessRss()
             << std::endl;
   return 0;
 }
