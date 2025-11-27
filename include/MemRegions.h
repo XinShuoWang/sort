@@ -3,6 +3,7 @@
 #include "conf.h"
 #include <mutex>
 #include <vector>
+#include <stdexcept>
 
   class MemRegions {
   public:
