@@ -3,23 +3,27 @@
 #include "MmapMemory.h"
 #include "Spiller.h"
 #include "conf.h"
+#include "MemRegions.h"
+#include "Statistics.h"
 
 #include <fcntl.h>
-#include <iostream>
+#include <glog/logging.h>
 #include <linux/userfaultfd.h>
 #include <mutex>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <sys/eventfd.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
 #include <utility>
 
+
 class BufferManager {
 public:
   BufferManager(const std::string &spillPath)
-      : fd_(-1), isRunning_(true), pageFaultCount_(0) {
+      : userFaultFd_(-1), stopEventFd_(-1) {
     spiller_ = std::make_shared<Spiller>(spillPath);
     init();
   }
@@ -30,11 +34,13 @@ public:
   BufferManager &operator=(BufferManager &&) = delete;
 
   ~BufferManager() {
-    std::cout << "In the end, pageFaultCount_ is: " << pageFaultCount_
-              << std::endl;
+    LOG(INFO) << "In the end, " << statistics_.toString();
     stop();
-    if (fd_ >= 0) {
-      close(fd_);
+    if (userFaultFd_ >= 0) {
+      close(userFaultFd_);
+    }
+    if (stopEventFd_ >= 0) {
+      close(stopEventFd_);
     }
   }
 
@@ -57,14 +63,19 @@ public:
 private:
   void init() {
     // create userfaultfd
-    fd_ = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
-    if (fd_ < 0) {
+    userFaultFd_ = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+    if (userFaultFd_ < 0) {
       throw std::runtime_error("create userfaultfd failed!");
+    }
+
+    stopEventFd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (stopEventFd_ < 0) {
+      throw std::runtime_error("create eventfd failed!");
     }
 
     // setting API
     uffdio_api api = {.api = UFFD_API, .features = 0};
-    if (ioctl(fd_, UFFDIO_API, &api) < 0) {
+    if (ioctl(userFaultFd_, UFFDIO_API, &api) < 0) {
       throw std::runtime_error("setting API failed!");
     }
 
@@ -76,53 +87,52 @@ private:
     memSize size = mem->size();
     uffdio_register reg = {.range = {.start = (uint64_t)addr, .len = size},
                            .mode = UFFDIO_REGISTER_MODE_MISSING};
-    if (ioctl(fd_, UFFDIO_REGISTER, &reg) < 0) {
+    if (ioctl(userFaultFd_, UFFDIO_REGISTER, &reg) < 0) {
       throw std::runtime_error("register memory address failed!");
     }
-    {
-      std::lock_guard<std::mutex> guard(mutex_);
-      memRegions_.emplace_back(std::make_pair(addr, size));
-    }
+    regions_.add(addr, size);
   }
 
   void startPageFaultHandlerThread() {
-    handlerThread_ = std::thread([this]() {
-      std::cout << "Page fault handler thread start!" << std::endl;
-
-      while (isRunning_) {
-        // waiting for PageFault event...
-        pollfd pfd = {.fd = fd_, .events = POLLIN};
-        // 100ms timeout
-        int ret = poll(&pfd, 1, 100);
-
-        if (ret > 0 && (pfd.revents & POLLIN)) {
-          handlePageFaultEvent();
+    std::atomic<bool> hasStarted{false};
+    handlerThread_ = std::thread([this, &hasStarted]() {
+      hasStarted.store(true, std::memory_order_release);
+      while (true) {
+        pollfd pfds[2] = {{.fd = userFaultFd_, .events = POLLIN, .revents = 0},
+                          {.fd = stopEventFd_, .events = POLLIN, .revents = 0}};
+        int ret = poll(pfds, 2, -1);
+        if (ret > 0) {
+          if (pfds[1].revents & POLLIN) {
+            uint64_t v;
+            ssize_t r = read(stopEventFd_, &v, sizeof(v));
+            (void)r;
+            break;
+          }
+          if (pfds[0].revents & POLLIN) {
+            handlePageFaultEvent();
+          }
         }
       }
     });
-    // waiting for thread start
-    usleep(100000);
+    while(!hasStarted.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
   }
 
   void handlePageFaultEvent() {
     uffd_msg msg;
-    if (read(fd_, &msg, sizeof(msg)) != sizeof(msg)) {
+    if (read(userFaultFd_, &msg, sizeof(msg)) != sizeof(msg)) {
       return;
     }
 
     if (msg.event == UFFD_EVENT_PAGEFAULT) {
       char *addr = reinterpret_cast<char *>(msg.arg.pagefault.address);
 
-      if (pageFaultCount_ % 100000 == 0) {
-        std::cout << "Page fault! address: "
-                  << (void *)msg.arg.pagefault.address
-                  << ", size: " << kPageSize << std::endl;
-      }
-      pageFaultCount_++;
+      statistics_.pageFaultCount++;
 
       // fill by origin content
       char s[kPageSize];
-      auto startAddr = findStartAddr(addr);
+      auto startAddr = regions_.findStart(addr);
       spiller_->recoverMem(startAddr, addr - startAddr, s, kPageSize);
 
       // tell kernel, page is ready
@@ -130,37 +140,24 @@ private:
                           .src = (uint64_t)s,
                           .len = kPageSize,
                           .mode = 0};
-      ioctl(fd_, UFFDIO_COPY, &copy);
+      ioctl(userFaultFd_, UFFDIO_COPY, &copy);
     }
-  }
-
-  // TODO: can optimize
-  char *findStartAddr(char *addr) {
-    std::lock_guard<std::mutex> guard(mutex_);
-    for (const auto &region : memRegions_) {
-      if (addr >= region.first && addr < region.first + region.second) {
-        return region.first;
-      }
-    }
-    throw std::runtime_error("Can't find start address");
   }
 
   void stop() {
-    isRunning_ = false;
-    // waiting for stop
-    usleep(1000000);
+    uint64_t v = 1;
+    if (stopEventFd_ >= 0) {
+      ssize_t w = write(stopEventFd_, &v, sizeof(v));
+      (void)w;
+    }
     if (handlerThread_.joinable()) {
       handlerThread_.join();
     }
   }
 
-  int fd_;
-  std::atomic<bool> isRunning_;
+  int userFaultFd_, stopEventFd_;
   std::thread handlerThread_;
-
-  std::mutex mutex_;
-  std::vector<std::pair<char *, int64_t>> memRegions_;
-
+  MemRegions regions_;
   SpillerPtr spiller_;
-  uint64_t pageFaultCount_;
+  Statistics statistics_;
 };

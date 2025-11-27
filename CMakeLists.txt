@@ -12,11 +12,15 @@ endif()
 
 include_directories(include)
 
+include(FindPkgConfig)
+pkg_check_modules(liburing REQUIRED IMPORTED_TARGET GLOBAL liburing>=2.0)
+find_package(glog CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+
+set(LINK_LIBS pthread PkgConfig::liburing glog::glog fmt::fmt)
+
 add_executable(min_demo src/demo.cc)
-target_link_libraries(min_demo PRIVATE pthread)
+target_link_libraries(min_demo PRIVATE ${LINK_LIBS})
 
 add_executable(sort src/sort.cc)
-target_link_libraries(sort PRIVATE pthread)
-
-#add_executable(hash_table src/hashTable.cc)
-#target_link_libraries(hash_table PRIVATE pthread)
+target_link_libraries(sort PRIVATE ${LINK_LIBS})

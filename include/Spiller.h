@@ -3,12 +3,12 @@
 #include "DirectoryUtils.h"
 #include "FileUtils.h"
 #include "conf.h"
+#include "MemAddrToFileMap.h"
 
 #include <atomic>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -32,24 +32,16 @@ public:
 
   void eraseMem(char *addr, memSize size) {
     std::string fileName = FileUtils::write(nextFileName(), addr, size);
-    {
-      std::lock_guard<std::mutex> guard(mutex_);
-      addrToFileName_[addr] = fileName;
-    }
+    index_.set(addr, fileName);
   }
 
   void recoverMem(char *startAddr, int64_t offset, char *dst, memSize size) {
-    std::string fileName;
-    {
-      std::lock_guard<std::mutex> guard(mutex_);
-      auto it = addrToFileName_.find(startAddr);
-      if (it == addrToFileName_.end()) {
-        throw std::runtime_error("Can't find file name mapping for address: " +
-                                 std::to_string((uint64_t)startAddr));
-      }
-      fileName = it->second;
+    auto fileNameOpt = index_.get(startAddr);
+    if (!fileNameOpt) {
+      throw std::runtime_error("Can't find file name mapping for address: " +
+                               std::to_string((uint64_t)startAddr));
     }
-    FileUtils::read(fileName, offset, dst, size);
+    FileUtils::read(*fileNameOpt, offset, dst, size);
   }
 
 private:
@@ -59,12 +51,10 @@ private:
   }
 
   std::atomic<int64_t> fileId_;
-  inline static const std::string kFileSuffix = ".bin";
-
-  std::mutex mutex_;
-  std::unordered_map<char *, std::string> addrToFileName_;
-
+  MemAddrToFileMap index_;
   std::string spillPath_;
+
+  inline static const std::string kFileSuffix = ".bin";
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;

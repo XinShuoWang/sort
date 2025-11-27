@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <execution>
-#include <iostream>
+#include <glog/logging.h>
 #include <queue>
 #include <vector>
 
@@ -24,6 +24,8 @@ struct ElementCompare {
 };
 
 int main() {
+  google::InitGoogleLogging("sort");
+  FLAGS_logtostderr = 1;
   BufferManager manager("./spill");
   memSize perBlocksize = kPageSize * 1024 * 1024; // 4GB
   int64_t epoch = 4;
@@ -42,14 +44,14 @@ int main() {
     for (memSize j = 0; j < numElements; ++j) {
       ptr[j] = rand();
     }
-    std::cout << "Sorting " << numElements << " int64 numbers. Process RSS is: "
-              << MemoryUtils::getProcessRss() << std::endl;
+    LOG(INFO) << "Sorting " << numElements << " int64 numbers. Process RSS is: "
+              << MemoryUtils::getProcessRss();
     // partial sort
     std::sort(std::execution::par, ptr, ptr + numElements);
     // mark this memory can be flush to disk
     manager.invalidMemory(memory);
-    std::cout << "After invalid, process RSS is:"
-              << MemoryUtils::getProcessRss() << std::endl;
+    LOG(INFO) << "After invalid, process RSS is:"
+              << MemoryUtils::getProcessRss();
     stores.emplace_back(memory);
     arrays.emplace_back(ptr);
     sizes.emplace_back(numElements);
@@ -67,7 +69,7 @@ int main() {
   while (!minHeap.empty()) {
     auto e = minHeap.top();
     minHeap.pop();
-    // std::cout << e.value << " ";
+    // LOG(INFO) << e.value << " ";
     if (e.elementIdx + 1 < sizes[e.arrayIdx]) {
       minHeap.emplace(Element{.value = arrays[e.arrayIdx][e.elementIdx + 1],
                               .arrayIdx = e.arrayIdx,
@@ -82,7 +84,6 @@ int main() {
       }
     }
   }
-  std::cout << "After invalid, process RSS is:" << MemoryUtils::getProcessRss()
-            << std::endl;
+  LOG(INFO) << "After invalid, process RSS is:" << MemoryUtils::getProcessRss();
   return 0;
 }

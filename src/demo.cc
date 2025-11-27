@@ -2,8 +2,11 @@
 #include "conf.h"
 
 #include <cstring>
+#include <glog/logging.h>
 
 int main() {
+  google::InitGoogleLogging("min_demo");
+  FLAGS_logtostderr = 1;
   try {
     BufferManager manager("./spill");
 
@@ -24,10 +27,10 @@ int main() {
     // Page Fault!!!!
     char *addr = memory->address();
     std::string s(addr + 9000, size - 9000);
-    std::cout << "mem content is: " << s << std::endl;
+    LOG(INFO) << "mem content is: " << s;
 
   } catch (const std::exception &e) {
-    std::cout << "Encounter error: " << e.what() << std::endl;
+    LOG(ERROR) << "Encounter error: " << e.what();
     return 1;
   }
 
