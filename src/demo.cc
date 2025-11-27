@@ -5,7 +5,7 @@
 
 int main() {
   try {
-    BufferManager manager;
+    BufferManager manager("./spill");
 
     memSize size = kPageSize * 2 + 3;
 

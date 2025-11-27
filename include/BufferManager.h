@@ -4,26 +4,23 @@
 #include "Spiller.h"
 #include "conf.h"
 
-#include <iostream>
-#include <mutex>
-#include <thread>
-#include <unordered_map>
-
 #include <fcntl.h>
+#include <iostream>
 #include <linux/userfaultfd.h>
+#include <mutex>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <thread>
 #include <unistd.h>
+#include <unordered_map>
 #include <utility>
 
 class BufferManager {
 public:
-  BufferManager() {
-    fd_ = -1;
-    isRunning_ = true;
-    spiller_ = std::make_shared<Spiller>();
-    pageFaultCount_ = 0;
+  BufferManager(const std::string &spillPath)
+      : fd_(-1), isRunning_(true), pageFaultCount_(0) {
+    spiller_ = std::make_shared<Spiller>(spillPath);
     init();
   }
 
@@ -49,7 +46,7 @@ public:
     registerMemory(mem);
   }
 
-  static void invalidMemoryWithoutSave(char *addr, memSize size) {
+  void invalidMemoryWithoutSave(char *addr, memSize size) {
     madvise(addr, size, MADV_DONTNEED);
   }
 
@@ -165,6 +162,5 @@ private:
   std::vector<std::pair<char *, int64_t>> memRegions_;
 
   SpillerPtr spiller_;
-
   uint64_t pageFaultCount_;
 };

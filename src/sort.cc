@@ -24,7 +24,7 @@ struct ElementCompare {
 };
 
 int main() {
-  BufferManager manager;
+  BufferManager manager("./spill");
   memSize perBlocksize = kPageSize * 1024 * 1024; // 4GB
   int64_t epoch = 4;
 

@@ -1,9 +1,12 @@
 #pragma once
 
+#include "DirectoryUtils.h"
+#include "FileUtils.h"
 #include "conf.h"
 
 #include <atomic>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -15,8 +18,12 @@
 
 class Spiller {
 public:
-  Spiller() { fileId_ = 0; }
-  ~Spiller() {}
+  Spiller(const std::string &path) : spillPath_(path) {
+    fileId_ = 0;
+    DirectoryUtils::createDir(spillPath_);
+  }
+
+  ~Spiller() { DirectoryUtils::removeAll(spillPath_); }
 
   Spiller(const Spiller &) = delete;
   Spiller(Spiller &&) = delete;
@@ -24,7 +31,7 @@ public:
   Spiller &operator=(Spiller &&) = delete;
 
   void eraseMem(char *addr, memSize size) {
-    std::string fileName = write(addr, size);
+    std::string fileName = FileUtils::write(nextFileName(), addr, size);
     {
       std::lock_guard<std::mutex> guard(mutex_);
       addrToFileName_[addr] = fileName;
@@ -42,45 +49,13 @@ public:
       }
       fileName = it->second;
     }
-    read(fileName, offset, dst, size);
+    FileUtils::read(fileName, offset, dst, size);
   }
 
 private:
-  std::string write(char *addr, memSize size) {
-    std::string fileName = nextFileName();
-    std::ofstream file(fileName, std::ios::binary);
-    if (!file.is_open()) {
-      throw std::runtime_error("Can't open " + fileName + " for write.");
-    }
-
-    file.write(static_cast<const char *>(addr), size);
-    if (!file.good()) {
-      throw std::runtime_error("Encounter error for writing file.");
-    }
-
-    file.close();
-    return fileName;
-  }
-
-  void read(std::string &fileName, int64_t offset, char *addr, memSize size) {
-    std::ifstream file(fileName, std::ios::binary);
-    if (!file.is_open()) {
-      throw std::runtime_error("Can't open " + fileName + " for read.");
-    }
-    // seek to offset
-    file.seekg(offset);
-    // read size bytes
-    file.read(static_cast<char *>(addr), size);
-    if (!file.good()) {
-      throw std::runtime_error("Encounter error for reading file.");
-    }
-
-    file.close();
-  }
-
   std::string nextFileName() {
     int64_t id = fileId_.fetch_add(1);
-    return std::to_string(id) + kFileSuffix;
+    return spillPath_ + "/" + std::to_string(id) + kFileSuffix;
   }
 
   std::atomic<int64_t> fileId_;
@@ -88,6 +63,8 @@ private:
 
   std::mutex mutex_;
   std::unordered_map<char *, std::string> addrToFileName_;
+
+  std::string spillPath_;
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;
