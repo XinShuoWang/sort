@@ -18,6 +18,8 @@ public:
 
   bool tryAcquire(memSize size);
 
+  void release(memSize size);
+
   memSize used();
 
   memSize available();

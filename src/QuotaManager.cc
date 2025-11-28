@@ -27,6 +27,13 @@ bool QuotaManager::tryAcquire(memSize size) {
   return false;
 }
 
+void QuotaManager::release(memSize size) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  used_ -= size;
+  LOG(INFO) << "quota release size=" << size << " used=" << used_
+            << " total=" << size_;
+}
+
 memSize QuotaManager::used() {
   std::lock_guard<std::mutex> lock(mutex_);
   return used_;
@@ -36,4 +43,3 @@ memSize QuotaManager::available() {
   std::lock_guard<std::mutex> lock(mutex_);
   return size_ - used_;
 }
-

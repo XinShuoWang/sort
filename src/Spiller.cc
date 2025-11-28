@@ -6,7 +6,6 @@
 #include <sys/mman.h>
 
 Spiller::Spiller(const std::string &path) : spillPath_(path) {
-  fileId_ = 0;
   DirectoryUtils::createDir(spillPath_);
   LOG(INFO) << "spiller init path=" << spillPath_;
 }
@@ -29,27 +28,27 @@ void Spiller::recoverMem(char *startAddr, int64_t offset, char *dst,
 }
 
 void Spiller::registerMem(MmapMemoryPtr &mem) {
-  allMems_.push(mem);
+  queue_.push(mem);
   LOG(INFO) << "spiller register addr=" << (uint64_t)mem->address()
             << " size=" << mem->size();
 }
 
 memSize Spiller::spill(memSize targetSize) {
   memSize spilledSize = 0;
-  auto elementSize = allMems_.size();
+  auto elementSize = queue_.size();
   LOG(INFO) << "spiller spill start target=" << targetSize
             << " queue_size=" << elementSize;
   while (elementSize > 0 && spilledSize < targetSize) {
-    auto mem = allMems_.front();
-    allMems_.pop();
+    auto mem = queue_.front();
+    queue_.pop();
     if (mem.use_count() == 1) {
+      spilledSize += mem->size();
       addrToFileMap_.erase(mem->address());
-      continue;
     } else {
-      allMems_.push(mem);
+      spilledSize += mem->size();
+      queue_.push(mem);
+      eraseMem(mem);
     }
-    spilledSize += mem->size();
-    eraseMem(mem);
     elementSize--;
   }
   LOG(INFO) << "spiller spill done target=" << targetSize
@@ -71,6 +70,8 @@ void Spiller::eraseMem(MmapMemoryPtr &mem) {
 }
 
 std::string Spiller::nextFileName() {
+  static std::atomic<int64_t> fileId_{0};
+  static const std::string kFileSuffix = ".bin";
   int64_t id = fileId_.fetch_add(1);
   return spillPath_ + "/" + std::to_string(id) + kFileSuffix;
 }

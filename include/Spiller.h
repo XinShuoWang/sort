@@ -30,15 +30,12 @@ public:
 
 private:
   void eraseMem(MmapMemoryPtr &mem);
+
   std::string nextFileName();
 
-  inline static const std::string kFileSuffix = ".bin";
-
-  std::atomic<int64_t> fileId_;
-  MemAddrToFileMap addrToFileMap_;
   std::string spillPath_;
-
-  std::queue<MmapMemoryPtr> allMems_;
+  MemAddrToFileMap addrToFileMap_;
+  std::queue<MmapMemoryPtr> queue_;
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;

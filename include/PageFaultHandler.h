@@ -4,8 +4,8 @@
 #include "Conf.h"
 #include "MemRegions.h"
 #include "MmapMemory.h"
-#include "Statistics.h"
 #include "Spiller.h"
+#include "Statistics.h"
 
 #include <atomic>
 #include <cstring>
@@ -26,6 +26,8 @@ public:
   ~PageFaultHandler();
 
   void registerMemory(MmapMemoryPtr &mem);
+
+  bool unregisterMemory(char *addr, memSize size);
 
 private:
   void loop();

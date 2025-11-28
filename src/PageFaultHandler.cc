@@ -61,6 +61,19 @@ void PageFaultHandler::registerMemory(MmapMemoryPtr &mem) {
             << " size=" << size;
 }
 
+bool PageFaultHandler::unregisterMemory(char *addr, memSize size) {
+  // After unmmap, the memory is not registered anymore, so we don't need to
+  // unregister it, but we still need to remove it from regions_.
+  // uffdio_range unreg{.start = (uint64_t)addr, .len = size};
+  // if (ioctl(userFaultFd_, UFFDIO_UNREGISTER, &unreg) < 0) {
+  //   throw std::runtime_error("unregister memory address failed!");
+  // }
+  bool removed = regions_.remove(addr);
+  LOG(INFO) << "pagefault unregister range start=" << (uint64_t)addr
+            << " size=" << size << " removed=" << removed;
+  return true;
+}
+
 void PageFaultHandler::loop() {
   while (true) {
     pollfd pfds[2] = {{.fd = userFaultFd_, .events = POLLIN, .revents = 0},
@@ -91,7 +104,7 @@ void PageFaultHandler::handleEvent() {
     LOG(INFO) << "pagefault event addr=" << (uint64_t)addr;
     auto startAddr = regions_.findStart(addr);
     spiller_->recoverMem(startAddr, addr - startAddr, buffer_->data(),
-                        kPageSize);
+                         kPageSize);
     uffdio_copy copy = {.dst = msg.arg.pagefault.address,
                         .src = (uint64_t)buffer_->data(),
                         .len = kPageSize,

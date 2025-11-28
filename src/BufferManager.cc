@@ -15,7 +15,12 @@ MmapMemoryPtr BufferManager::accquireMemory(int64_t size) {
   if (!quotaManager_->tryAcquire(size)) {
     throw std::runtime_error("quota not enough! OOM error!");
   }
-  auto mem = std::make_shared<MmapMemory>(size);
+  auto mem = std::shared_ptr<MmapMemory>(
+      new MmapMemory(size), [this](MmapMemory *mem) {
+        pageFaultHandler_->unregisterMemory(mem->address(), mem->size());
+        delete mem;
+      });
+  // auto mem = std::make_shared<MmapMemory>(size);
   spiller_->registerMem(mem);
   pageFaultHandler_->registerMemory(mem);
   LOG(INFO) << "buffer manager acquired memory size=" << size
