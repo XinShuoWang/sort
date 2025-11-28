@@ -1,11 +1,13 @@
 #pragma once
 
-#include <shared_mutex>
+#include "FileUtils.h"
+
+#include <cstdint>
 #include <optional>
+#include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <stdexcept>
-#include <cstdint>
 
 class MemAddrToFileMap {
 public:
@@ -21,6 +23,16 @@ public:
       return std::nullopt;
     }
     return it->second;
+  }
+
+  void erase(char *addr) {
+    std::unique_lock<std::shared_mutex> g(mutex_);
+    auto it = index_.find(addr);
+    if (it == index_.end()) {
+      throw std::runtime_error("addr not found!");
+    }
+    FileUtils::remove(it->second);
+    index_.erase(addr);
   }
 
 private:

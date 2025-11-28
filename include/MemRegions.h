@@ -1,6 +1,6 @@
 #pragma once
 
-#include "conf.h"
+#include "Conf.h"
 #include <mutex>
 #include <vector>
 #include <stdexcept>

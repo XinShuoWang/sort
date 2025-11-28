@@ -1,54 +1,45 @@
 #pragma once
 
-#include "DirectoryUtils.h"
-#include "FileUtils.h"
-#include "conf.h"
+#include "Conf.h"
 #include "MemAddrToFileMap.h"
+#include "MmapMemory.h"
 
 #include <atomic>
+#include <glog/logging.h>
 #include <memory>
+#include <queue>
 #include <stdexcept>
 #include <string>
 
 class Spiller {
 public:
-  Spiller(const std::string &path) : spillPath_(path) {
-    fileId_ = 0;
-    DirectoryUtils::createDir(spillPath_);
-  }
+  explicit Spiller(const std::string &path);
 
-  ~Spiller() { DirectoryUtils::removeAll(spillPath_); }
+  ~Spiller();
 
   Spiller(const Spiller &) = delete;
   Spiller(Spiller &&) = delete;
   Spiller &operator=(const Spiller &) = delete;
   Spiller &operator=(Spiller &&) = delete;
 
-  void eraseMem(char *addr, memSize size) {
-    std::string fileName = FileUtils::write(nextFileName(), addr, size);
-    index_.set(addr, fileName);
-  }
+  void recoverMem(char *startAddr, int64_t offset, char *dst, memSize size);
 
-  void recoverMem(char *startAddr, int64_t offset, char *dst, memSize size) {
-    auto fileNameOpt = index_.get(startAddr);
-    if (!fileNameOpt) {
-      throw std::runtime_error("Can't find file name mapping for address: " +
-                               std::to_string((uint64_t)startAddr));
-    }
-    FileUtils::read(*fileNameOpt, offset, dst, size);
-  }
+  void registerMem(MmapMemoryPtr &mem);
+
+  memSize spill(memSize targetSize);
 
 private:
-  std::string nextFileName() {
-    int64_t id = fileId_.fetch_add(1);
-    return spillPath_ + "/" + std::to_string(id) + kFileSuffix;
-  }
-
-  std::atomic<int64_t> fileId_;
-  MemAddrToFileMap index_;
-  std::string spillPath_;
+  void eraseMem(MmapMemoryPtr &mem);
+  std::string nextFileName();
 
   inline static const std::string kFileSuffix = ".bin";
+
+  std::atomic<int64_t> fileId_;
+  MemAddrToFileMap addrToFileMap_;
+  std::string spillPath_;
+
+  std::queue<MmapMemoryPtr> allMems_;
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;
+using SpillerWeakPtr = std::weak_ptr<Spiller>;

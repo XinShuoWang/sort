@@ -19,8 +19,7 @@ find_package(fmt CONFIG REQUIRED)
 
 set(LINK_LIBS pthread PkgConfig::liburing glog::glog fmt::fmt)
 
-add_executable(min_demo src/demo.cc)
-target_link_libraries(min_demo PRIVATE ${LINK_LIBS})
+file(GLOB SRC_FILES src/*.cc)
 
-add_executable(sort src/sort.cc)
-target_link_libraries(sort PRIVATE ${LINK_LIBS})
+add_executable(demo demo.cc ${SRC_FILES})
+target_link_libraries(demo PRIVATE ${LINK_LIBS})
