@@ -2,6 +2,7 @@
   "dependencies": [
     "fmt",
     "liburing",
-    "glog"
+    "glog",
+    "gtest"
   ]
 }

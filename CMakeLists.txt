@@ -23,3 +23,5 @@ file(GLOB SRC_FILES src/*.cc)
 
 add_executable(demo demo.cc ${SRC_FILES})
 target_link_libraries(demo PRIVATE ${LINK_LIBS})
+
+add_subdirectory(test)
