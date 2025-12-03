@@ -4,11 +4,8 @@
 #include "MemAddrToFileMap.h"
 #include "MmapMemory.h"
 
-#include <atomic>
-#include <glog/logging.h>
 #include <memory>
 #include <queue>
-#include <stdexcept>
 #include <string>
 
 class Spiller {

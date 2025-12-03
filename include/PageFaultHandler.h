@@ -7,17 +7,7 @@
 #include "Spiller.h"
 #include "Statistics.h"
 
-#include <atomic>
-#include <cstring>
-#include <fcntl.h>
-#include <glog/logging.h>
-#include <linux/userfaultfd.h>
-#include <poll.h>
-#include <sys/eventfd.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
 #include <thread>
-#include <unistd.h>
 
 class PageFaultHandler {
 public:

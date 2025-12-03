@@ -25,13 +25,14 @@ int main() {
     }
 
     // Page Fault!!!!
+    LOG(INFO) << "read page to trigger fault";
     auto memory = mems[0];
     memSize size = memory->size();
     char *addr = memory->address();
-    std::string s(addr, 100);
-    LOG(INFO) << "mem content is: " << s;
-    LOG(INFO) << "demo end";
+    std::string str(addr, size);
+    LOG(INFO) << "read first 100 bytes: " << str.substr(0, 100);
 
+    LOG(INFO) << "demo end";
   } catch (const std::exception &e) {
     LOG(ERROR) << "Encounter error: " << e.what();
     return 1;

@@ -3,8 +3,6 @@
 #include "Conf.h"
 
 #include <memory>
-#include <stdexcept>
-#include <sys/mman.h>
 
 class MmapMemory {
 public:

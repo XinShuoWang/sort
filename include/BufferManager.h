@@ -6,8 +6,6 @@
 #include "QuotaManager.h"
 #include "Spiller.h"
 
-#include <glog/logging.h>
-
 class BufferManager {
 public:
   BufferManager(const Config &conf);

@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 
 std::string FileUtils::write(const std::string &fileName, char *addr,
                              memSize size) {

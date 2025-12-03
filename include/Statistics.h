@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 struct Statistics {
   uint64_t pageFaultCount{0};

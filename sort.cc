@@ -44,14 +44,12 @@ int main() {
     for (memSize j = 0; j < numElements; ++j) {
       ptr[j] = rand();
     }
-    LOG(INFO) << "Sorting " << numElements << " int64 numbers. Process RSS is: "
-              << MemoryUtils::getProcessRss();
+    LOG(INFO) << "Sorting " << numElements << " int64 numbers";
     // partial sort
     std::sort(std::execution::par, ptr, ptr + numElements);
     // mark this memory can be flush to disk
     manager.invalidMemory(memory);
-    LOG(INFO) << "After invalid, process RSS is:"
-              << MemoryUtils::getProcessRss();
+    LOG(INFO) << "Block flushed to disk";
     stores.emplace_back(memory);
     arrays.emplace_back(ptr);
     sizes.emplace_back(numElements);
@@ -84,6 +82,6 @@ int main() {
       }
     }
   }
-  LOG(INFO) << "After invalid, process RSS is:" << MemoryUtils::getProcessRss();
+  LOG(INFO) << "Merge complete";
   return 0;
 }

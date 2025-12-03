@@ -12,14 +12,9 @@ bool QuotaManager::tryAcquire(memSize size) {
   do {
     if (used_ + size <= size_) {
       used_ += size;
-      LOG(INFO) << "quota acquire size=" << size << " used=" << used_
-                << " total=" << size_;
       return true;
     }
     auto spilled = spiller_->spill(used_ + size - size_);
-    LOG(INFO) << "quota spill requested=" << (used_ + size - size_)
-              << " spilled=" << spilled << " used_before=" << used_
-              << " used_after=" << (used_ - spilled);
     used_ -= spilled;
   } while (--tryTimes > 0);
   LOG(ERROR) << "quota acquire failed size=" << size << " used=" << used_
@@ -30,8 +25,6 @@ bool QuotaManager::tryAcquire(memSize size) {
 void QuotaManager::release(memSize size) {
   std::lock_guard<std::mutex> lock(mutex_);
   used_ -= size;
-  LOG(INFO) << "quota release size=" << size << " used=" << used_
-            << " total=" << size_;
 }
 
 memSize QuotaManager::used() {

@@ -1,5 +1,6 @@
 #include "MmapMemory.h"
 #include <cstring>
+#include <stdexcept>
 #include <sys/mman.h>
 
 MmapMemory::MmapMemory(memSize size) {

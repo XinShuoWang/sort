@@ -4,7 +4,6 @@
 #include "Spiller.h"
 
 #include <mutex>
-#include <glog/logging.h>
 
 class QuotaManager {
 public:

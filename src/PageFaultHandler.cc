@@ -1,7 +1,18 @@
 #include "PageFaultHandler.h"
 #include "Spiller.h"
 
+#include <atomic>
 #include <chrono>
+#include <cstring>
+#include <fcntl.h>
+#include <glog/logging.h>
+#include <linux/userfaultfd.h>
+#include <poll.h>
+#include <sys/eventfd.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
+#include <thread>
+#include <unistd.h>
 
 PageFaultHandler::PageFaultHandler(SpillerPtr spiller)
     : userFaultFd_(-1), stopEventFd_(-1), spiller_(spiller),
@@ -21,14 +32,12 @@ PageFaultHandler::PageFaultHandler(SpillerPtr spiller)
   std::atomic<bool> hasStarted{false};
   handlerThread_ = std::thread([this, &hasStarted]() {
     hasStarted.store(true, std::memory_order_release);
-    LOG(INFO) << "pagefault handler thread started";
     loop();
   });
   while (!hasStarted.load(std::memory_order_acquire)) {
     std::this_thread::yield();
   }
-  LOG(INFO) << "pagefault handler init userfaultfd=" << userFaultFd_
-            << " stopEventFd=" << stopEventFd_;
+  LOG(INFO) << "pagefault handler init userfaultfd=" << userFaultFd_;
 }
 
 PageFaultHandler::~PageFaultHandler() {
@@ -70,7 +79,7 @@ bool PageFaultHandler::unregisterMemory(char *addr, memSize size) {
   // }
   bool removed = regions_.remove(addr);
   LOG(INFO) << "pagefault unregister range start=" << (uint64_t)addr
-            << " size=" << size << " removed=" << removed;
+            << " size=" << size;
   return true;
 }
 
@@ -83,7 +92,7 @@ void PageFaultHandler::loop() {
       if (pfds[1].revents & POLLIN) {
         uint64_t v;
         [[maybe_unused]] ssize_t r = read(stopEventFd_, &v, sizeof(v));
-        LOG(INFO) << "pagefault handler stop signal received";
+        LOG(INFO) << "pagefault handler stopping";
         break;
       }
       if (pfds[0].revents & POLLIN) {
@@ -101,7 +110,6 @@ void PageFaultHandler::handleEvent() {
   if (msg.event == UFFD_EVENT_PAGEFAULT) {
     char *addr = reinterpret_cast<char *>(msg.arg.pagefault.address);
     stats_.pageFaultCount++;
-    LOG(INFO) << "pagefault event addr=" << (uint64_t)addr;
     auto startAddr = regions_.findStart(addr);
     spiller_->recoverMem(startAddr, addr - startAddr, buffer_->data(),
                          kPageSize);

@@ -210,4 +210,3 @@ uintmax_t DirectoryUtils::getDiskUsage(const std::filesystem::path &path) {
   auto info = getDirInfo(path);
   return info.total_size;
 }
-
