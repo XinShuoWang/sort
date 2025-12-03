@@ -19,6 +19,8 @@ public:
 
   MmapMemoryPtr accquireMemory(int64_t size);
 
+  Statistics pageFaultStats() const;
+
 private:
   SpillerPtr spiller_;
   std::unique_ptr<QuotaManager> quotaManager_;

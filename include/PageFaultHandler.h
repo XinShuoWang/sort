@@ -19,6 +19,8 @@ public:
 
   bool unregisterMemory(char *addr, memSize size);
 
+  Statistics stats() const;
+
 private:
   void loop();
   void handleEvent();

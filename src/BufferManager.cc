@@ -23,3 +23,7 @@ MmapMemoryPtr BufferManager::accquireMemory(int64_t size) {
   pageFaultHandler_->registerMemory(mem);
   return mem;
 }
+
+Statistics BufferManager::pageFaultStats() const {
+  return pageFaultHandler_->stats();
+}

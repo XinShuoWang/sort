@@ -121,3 +121,5 @@ void PageFaultHandler::handleEvent() {
     LOG(INFO) << "pagefault copied page size=" << kPageSize;
   }
 }
+
+Statistics PageFaultHandler::stats() const { return stats_; }

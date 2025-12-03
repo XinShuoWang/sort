@@ -59,7 +59,7 @@ void Spiller::eraseMem(MmapMemoryPtr &mem) {
   if (addrToFileMap_.get(addr).has_value()) {
     return;
   }
-  std::string fileName = FileUtils::write(nextFileName(), addr, size);
+  std::string fileName = FileUtils::write(nextFileName(), addr, size, CompressionType::Zstd);
   addrToFileMap_.set(addr, fileName);
   madvise(addr, size, MADV_DONTNEED);
 }

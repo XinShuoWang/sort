@@ -3,6 +3,8 @@
     "fmt",
     "liburing",
     "glog",
-    "gtest"
+    "gtest",
+    "zstd",
+    "lz4"
   ]
 }

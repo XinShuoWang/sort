@@ -25,9 +25,9 @@ public:
 
   bool remove(char *addr) {
     std::unique_lock<std::mutex> guard(mutex_);
-    for (auto it = regions_.begin(); it != regions_.end(); ++it) {
-      if (it->first == addr) {
-        regions_.erase(it);
+    for (auto region = regions_.begin(); region != regions_.end(); ++region) {
+      if (addr >= region->first && addr < region->first + region->second) {
+        regions_.erase(region);
         return true;
       }
     }
