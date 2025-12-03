@@ -5,7 +5,7 @@
 
 TEST(DemoScenarioTest, PageFaultCountIsOne) {
   const memSize quota = 4 * kPageSize;
-  Config conf{.spillDir = "./spill", .quota = quota};
+  Config conf{.spillDir = "./spill", .quota = quota, .compressionType = CompressionType::Zstd};
   BufferManager manager(conf);
 
   std::vector<MmapMemoryPtr> mems;

@@ -6,7 +6,8 @@
 #include <glog/logging.h>
 #include <sys/mman.h>
 
-Spiller::Spiller(const std::string &path) : spillPath_(path) {
+Spiller::Spiller(const std::string &path, CompressionType compressionType)
+    : spillPath_(path), compressionType_(compressionType) {
   DirectoryUtils::createDir(spillPath_);
   LOG(INFO) << "spiller init path=" << spillPath_;
 }
@@ -59,7 +60,7 @@ void Spiller::eraseMem(MmapMemoryPtr &mem) {
   if (addrToFileMap_.get(addr).has_value()) {
     return;
   }
-  std::string fileName = FileUtils::write(nextFileName(), addr, size, CompressionType::Zstd);
+  std::string fileName = FileUtils::write(nextFileName(), addr, size, compressionType_);
   addrToFileMap_.set(addr, fileName);
   madvise(addr, size, MADV_DONTNEED);
 }

@@ -5,7 +5,7 @@
 #include <cstring>
 
 TEST(PageFaultHandlerTest, RegisterAndFault) {
-  auto spiller = std::make_shared<Spiller>("./spill_pf");
+  auto spiller = std::make_shared<Spiller>("./spill_pf", CompressionType::Zstd);
   PageFaultHandler handler(spiller);
   auto mem = std::make_shared<MmapMemory>(kPageSize);
   char *addr = mem->address();

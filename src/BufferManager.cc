@@ -2,7 +2,7 @@
 #include <glog/logging.h>
 
 BufferManager::BufferManager(const Config &conf) {
-  spiller_ = std::make_shared<Spiller>(conf.spillDir);
+  spiller_ = std::make_shared<Spiller>(conf.spillDir, conf.compressionType);
   pageFaultHandler_ = std::make_shared<PageFaultHandler>(spiller_);
   quotaManager_ = std::make_unique<QuotaManager>(conf.quota, spiller_);
 }

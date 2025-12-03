@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 TEST(QuotaManagerTest, AcquireReleaseSpill) {
-  auto spiller = std::make_shared<Spiller>("./spill_test_quota");
+  auto spiller = std::make_shared<Spiller>("./spill_test_quota", CompressionType::Zstd);
   QuotaManager q(2 * kPageSize, spiller);
 
   EXPECT_TRUE(q.tryAcquire(kPageSize));

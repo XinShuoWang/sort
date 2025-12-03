@@ -8,7 +8,7 @@
 TEST(SpillerTest, RegisterSpillRecover) {
   std::filesystem::path dir = "./spill_test";
   {
-    Spiller s(dir.string());
+    Spiller s(dir.string(), CompressionType::Zstd);
     auto mem = std::make_shared<MmapMemory>(kPageSize);
     char *addr = mem->address();
     std::memset(addr, 0xCD, mem->size());

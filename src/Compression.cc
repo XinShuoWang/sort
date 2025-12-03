@@ -152,6 +152,9 @@ void compressToStream(const char *src, size_t size, CompressionType type, std::o
 
 void decompressFromStreamToRange(std::istream &in, CompressionType type, size_t originalSize,
                                  size_t offset, char *dst, size_t size) {
+  if (offset + size > originalSize) {
+    throw std::runtime_error("Requested range exceeds original size");
+  }
   if (type == CompressionType::None) {
     in.seekg(offset);
     in.read(dst, size);

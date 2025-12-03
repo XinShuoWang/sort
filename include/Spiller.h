@@ -10,7 +10,7 @@
 
 class Spiller {
 public:
-  explicit Spiller(const std::string &path);
+  explicit Spiller(const std::string &path, CompressionType compressionType);
 
   ~Spiller();
 
@@ -33,6 +33,7 @@ private:
   std::string spillPath_;
   MemAddrToFileMap addrToFileMap_;
   std::queue<MmapMemoryPtr> queue_;
+  CompressionType compressionType_;
 };
 
 using SpillerPtr = std::shared_ptr<Spiller>;
